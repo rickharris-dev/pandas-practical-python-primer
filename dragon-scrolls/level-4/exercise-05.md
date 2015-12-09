@@ -1,5 +1,5 @@
 [Previous](exercise-04.md) |  [Next](exercise-06.md)
-## Exercise 4: Additional HTTP GET Support to your API
+## Exercise 5: Additional HTTP GET Support to your API
 [Code Files](../../training/level-4-creating-web-services/bfp-reference/exercise_04)
 
 In this exercise you will add support for retrieving a specific friend 
@@ -72,9 +72,9 @@ output:
     ```JSON
     {
       "email": "vdiesel4@supercool.edu",
-      "first_name": "Vin",
+      "firstName": "Vin",
       "id": "VinDi",
-      "last_name": "Diesel",
+      "lastName": "Diesel",
       "notes": "Really annoying guy.  Will never amount to anything.",
       "telephone": "I-HIT-PEOPLE"
     }
@@ -83,4 +83,6 @@ output:
 > ![Alert](../images/alert.png) We've introduced a bug here that might not be
 > be immediately obvious.  What happens when we query for `BFP`?  What about
 > `bfp`?  How might we account for this?
+
+| [Next Exercise](exercise-06.md)
 
