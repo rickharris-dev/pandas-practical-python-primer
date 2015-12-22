@@ -246,17 +246,9 @@ class Github:
 if __name__ == "__main__":
     github = Github(oauth_token=credentials.tokens['github'])
 
-    create_pull = github.create_pull_request(
-        username= 'bigfatpanda-training',
-        repo_name= 'pandas-practical-python-primer',
-        title= '11/30 Homework Update',
-        head= 'rwharris-nd:master',
-        base= 'master'
-    )
-    
     update_pull = github.update_pull_request(
         username= 'bigfatpanda-training',
         repo_name= 'pandas-practical-python-primer',
-        number= create_pull.json('number'),
+        number= 100,
         body= 'This pull request has been updated.'
     )

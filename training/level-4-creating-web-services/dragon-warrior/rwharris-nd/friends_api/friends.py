@@ -1,11 +1,23 @@
-from flask import Flask, jsonify, make_response, request, Response
+from flask import Flask, jsonify, make_response, request, Response, g
 from werkzeug.exceptions import BadRequest
 
-from friends_api import datastore
-from friends_api import api_helpers
+from friends_api.datastore import Datastore
 
 app = Flask(__name__)
 
+@app.before_request
+def connect_to_datastore():
+    """
+    Establish a connection to the datastore and store it on the 'g' object.
+    """
+    g.datastore = Datastore()
+
+@app.teardown_request
+def disconnect_from_datastore(exception):
+    """
+    Close the connection to the datastore.
+    """
+    del g.datastore
 
 @app.route('/api/v1/friends', methods=['GET'])
 def friends() -> Response:
@@ -15,12 +27,14 @@ def friends() -> Response:
     Returns:
         A flask.Response object.
     """
-    return jsonify({"friends": datastore.friends})
+    return jsonify({"friends": g.datastore.friends()})
+
 
 @app.route('/api/v1/friends/<id>', methods=['GET'])
-def specific_friend(id:str) -> Response:
+def specific_friend(id: str) -> Response:
     """
     Return a representation of a specific friend resource.
+
     Args:
         id: The unique ID value of a given friend.
 
@@ -28,14 +42,15 @@ def specific_friend(id:str) -> Response:
         A flask.Response object.
     """
 
-    friend = datastore.existing_friend(request_payload['id'])
-
-    if friend:
-        return jsonify(friend)
-    else:
+    try:
+        matched_friend = g.datastore.friend(id)
+    except ValueError as error:
         error_response = make_response(
-            jsonify({"error": "You have no friends. LOSER."}), 404)
+            jsonify({"error": str(error)}), 404)
         return error_response
+    else:
+        return jsonify(matched_friend)
+
 
 @app.route('/api/v1/friends', methods=['POST'])
 def create_friend() -> Response:
@@ -49,71 +64,75 @@ def create_friend() -> Response:
         A flask.Response object.
     """
     try:
-        request_payload = api_helpers.json_payload(request)
+        request_payload = request.get_json()
+    except BadRequest as error:
+        response = make_response(
+            jsonify({"error": str(error)}), 400)
+        return response
+
+    try:
+        g.datastore.create_friend(request_payload)
     except ValueError as error:
         response = make_response(
-            jsonify({"error": str(error)}),400)
-    else:
-        if datastore.existing_friend(request_payload['id']):
-            response = make_response(
-                jsonify({"error": "The specified friend resource already exists."}),
-                400)
-        else:
-            datastore.friends.append(
-                {"id": request_payload['id'],
-                 "first_name": request_payload['firstName'],
-                 "last_name": request_payload['lastName'],
-                 "telephone": request_payload['telephone'],
-                 "email": request_payload['email'],
-                 "notes": request_payload['notes'],
-                })
+            jsonify({"error": str(error)}),
+            400)
+        return response
 
-            response = make_response(
-            jsonify({"message": "Friend resource created."}), 201)
-
+    response = make_response(
+        jsonify({"message": "Friend resource created."}), 201)
     return response
 
-@app.route('/api/v1/friends/<id>', methods=['PUT'])
-def fully_update_friend(id: str) -> Response:
-    """
-    Update all aspects of a specific friend or return an error.
 
-    Use a JSON representation to fully update an existing friend
-    resource.
+@app.route('/api/v1/friends/<id>', methods=['PATCH'])
+def update_friend(id: str) -> Response:
+    """
+    Update an existing friend resource.
+
+    Utilize a JSON representation/payload in the request object to
+    updated an existing friend resource.
 
     Args:
-        id: The unique identifier of a friend resource.
+        id: The unique ID value of a given friend.
 
     Returns:
         A flask.Response object.
-
     """
     try:
-        request_payload = api_helpers.json_payload(request)
+        request_payload = request.get_json()
+    except BadRequest as error:
+        response = make_response(
+            jsonify({"error": "JSON payload contains syntax errors. "
+                              "Please fix and try again."}),
+            400)
+        return response
+
+    try:
+        g.datastore.update_friend(id, request_payload)
     except ValueError as error:
         response = make_response(
-            jsonify({"error": str(error)}),400)
-
+            jsonify({"error": str(error)}),
+            400)
         return response
 
-    friend = datastore.existing_friend(request_payload['id'])
+    response = make_response(
+        jsonify({"message": "Friend resource updated."}), 201)
+    return response
 
-    if friend:
-        friend.update(
-            {"id": request_payload['id'],
-             "first_name": request_payload['firstName'],
-             "last_name": request_payload['lastName'],
-             "telephone": request_payload['telephone'],
-             "email": request_payload['email'],
-             "notes": request_payload['notes'],
-            })
+@app.route('/api/v1/friends/<id>', methods=['DELETE'])
+def destroy_friend(id: str) -> Response:
+    """
+    Delete a specific friend resource or return an error.
 
-        response = jsonify({"message": "Friend resource updated. "
-                            "The updated id: {}".format(request_payload['id'])})
+    Args:
+        id: The unique ID value of a given friend.
+
+    Returns:
+        A flask.Response object.
+    """
+    try:
+        g.datastore.destroy_friend(id)
+    except ValueError as error:
+        response = make_response(jsonify({"error": str(error)}), 400)
         return response
-    else:
-        response = make_response(
-            jsonify({"error": "No friend resource exists that matches "
-                            "The given id: {}".format(request_payload['id'])}),
-            404)
-        return response
+
+    return jsonify({"message": "Friend resource removed."})
